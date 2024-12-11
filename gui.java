@@ -2,69 +2,94 @@ package com.mycompany.pp;
 
 import javax.swing.*;  
 import java.awt.*;  
-import java.awt.event.ActionEvent;  
-import java.awt.event.ActionListener;  
 import java.beans.PropertyChangeEvent;  
 import java.beans.PropertyChangeListener;  
+import java.util.ArrayList;  
+import java.util.List;  
 
 public class gui extends Thread implements PropertyChangeListener {  
-    private JTextField availableSeatsField;  
+    private JButton[][] seatButtons;  
+    private final String userName;  
+    private final List<String> reservedSeats; // List to track reserved seats for this user  
+
+    // Constructor to initialize the user name  
+    public gui(String userName) {  
+        this.userName = userName;  
+        this.reservedSeats = new ArrayList<>(); // Initialize the reserved seats list  
+    }  
 
     @Override  
     public void run() {  
-        // Create the frame  
-        JFrame frame = new JFrame("Movie Ticket Booking");  
+        JFrame frame = new JFrame("Movie Ticket Booking - " + userName);  
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);  
-        frame.setSize(300, 200);  
-        frame.setLayout(new GridLayout(4, 2, 10, 10));  
+        frame.setSize(600, 400);  
+        frame.setLayout(new BorderLayout());  
 
-        // Create labels, text fields, and button  
-        JLabel movieSeatsLabel = new JLabel("Movie seats: 5");  
-        JLabel availableSeatsLabel = new JLabel("Available seats:");  
-        availableSeatsField = new JTextField(String.valueOf(Ticket.getTickets()));  
-        availableSeatsField.setEditable(false);  
+        // Header Panel  
+        JPanel headerPanel = new JPanel();  
+        headerPanel.setBackground(Color.BLACK);  
+        JLabel headerLabel = new JLabel("Welcome to Cinema Booking - " + userName);  
+        headerLabel.setForeground(Color.YELLOW);  
+        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 18));  
+        headerPanel.add(headerLabel);  
 
-        JLabel bookSeatsLabel = new JLabel("Book seats:");  
-        JTextField bookSeatsField = new JTextField();  
+        // Seat Panel  
+        JPanel seatPanel = new JPanel(new GridLayout(Ticket.ROWS, Ticket.COLUMNS, 5, 5));  
+        seatPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));  
+
+        // Initialize seat buttons  
+        seatButtons = new JButton[Ticket.ROWS][Ticket.COLUMNS];  
+        for (int i = 0; i < Ticket.ROWS; i++) {  
+            for (int j = 0; j < Ticket.COLUMNS; j++) {  
+                JButton seatButton = new JButton((i * Ticket.COLUMNS + j + 1) + "");  
+                seatButton.setBackground(Color.GREEN); // Default color for available seats  
+                seatButton.setFont(new Font("SansSerif", Font.BOLD, 14));  
+                final int row = i;  
+                final int column = j;  
+
+                // Add ActionListener to handle seat booking  
+                seatButton.addActionListener(e -> handleSeatClick(seatButton, row, column));  
+
+                seatButtons[i][j] = seatButton;  
+                seatPanel.add(seatButton);  
+            }  
+        }  
+
+        // Footer Panel for Finish Button  
+        JPanel footerPanel = new JPanel();  
+        footerPanel.setBackground(Color.DARK_GRAY);  
+        footerPanel.setLayout(new FlowLayout(FlowLayout.CENTER)); // Center the button  
 
         JButton finishButton = new JButton("Finish");  
+        finishButton.setBackground(Color.GREEN);  
+        finishButton.setForeground(Color.WHITE);  
+        finishButton.setFont(new Font("SansSerif", Font.BOLD, 16));  
+        finishButton.setFocusPainted(false);  
 
-        // Add components to the frame  
-        frame.add(movieSeatsLabel);  
-        frame.add(new JLabel()); // Empty label for alignment  
-        frame.add(availableSeatsLabel);  
-        frame.add(availableSeatsField);  
-        frame.add(bookSeatsLabel);  
-        frame.add(bookSeatsField);  
-        frame.add(finishButton);  
-
-        // Add action listener for the "Finish" button  
-        finishButton.addActionListener(new ActionListener() {  
-            @Override  
-            public void actionPerformed(ActionEvent e) {  
-                try {  
-                    int bookedSeats = Integer.parseInt(bookSeatsField.getText());  
-
-                    // Check if the input is valid  
-                    if (bookedSeats <= 0 || bookedSeats > Ticket.getTickets()) {  
-                        JOptionPane.showMessageDialog(frame, "Invalid number of seats!", "Error", JOptionPane.ERROR_MESSAGE);  
-                    } else {  
-                        // Book the tickets  
-                        Ticket.BookTicket(bookedSeats);  
-
-                        JOptionPane.showMessageDialog(frame, "Seats booked successfully:)!");  
-                    }  
-                } catch (NumberFormatException ex) {  
-                    JOptionPane.showMessageDialog(frame, "Please enter a valid number!", "Error", JOptionPane.ERROR_MESSAGE);  
+        // Add action listener to the Finish button  
+        finishButton.addActionListener(e -> {  
+            if (reservedSeats.isEmpty()) {  
+                JOptionPane.showMessageDialog(frame, "You have not reserved any seats.", "No Reservations", JOptionPane.INFORMATION_MESSAGE);  
+            } else {  
+                StringBuilder message = new StringBuilder("You have reserved the following seats:\n");  
+                for (String seat : reservedSeats) {  
+                    message.append(seat).append("\n");  
                 }  
+                JOptionPane.showMessageDialog(frame, message.toString(), "Reservation Summary", JOptionPane.INFORMATION_MESSAGE);  
             }  
+            frame.dispose(); // Close the window  
         });  
+
+        footerPanel.add(finishButton);  
+
+        // Add panels to frame  
+        frame.add(headerPanel, BorderLayout.NORTH);  
+        frame.add(seatPanel, BorderLayout.CENTER);  
+        frame.add(footerPanel, BorderLayout.SOUTH); // Add footer panel at the bottom  
+        frame.setVisible(true);  
 
         // Register this GUI as a listener for ticket updates  
         Ticket.addPropertyChangeListener(this);  
-
-        // Display the frame  
-        frame.setVisible(true);  
 
         // Cleanup listener when the window is closed  
         frame.addWindowListener(new java.awt.event.WindowAdapter() {  
@@ -75,11 +100,36 @@ public class gui extends Thread implements PropertyChangeListener {
         });  
     }  
 
+    private void handleSeatClick(JButton seatButton, int row, int column) {  
+        String reservedBy = Ticket.isSeatBooked(row, column); // Check if the seat is already booked  
+        if (reservedBy != null) {  
+            // Notify the user that the seat is already booked  
+            JOptionPane.showMessageDialog(null, "Sorry, seat " + seatButton.getText() + " is already booked by " + reservedBy + "!", "Seat Already Booked", JOptionPane.ERROR_MESSAGE);  
+        } else {  
+            // Seat is available, book it  
+            boolean isBooked = Ticket.bookSeat(row, column, userName);  
+            if (isBooked) {  
+                seatButton.setBackground(Color.RED); // Mark the seat as booked  
+                reservedSeats.add("Seat " + seatButton.getText()); // Add the seat to the user's reserved list  
+                JOptionPane.showMessageDialog(null, "Seat " + seatButton.getText() + " booked successfully by user " + userName + "!", "Booking Successful", JOptionPane.INFORMATION_MESSAGE);  
+            } else {  
+                JOptionPane.showMessageDialog(null, "Failed to book seat! Please try again.", "Error", JOptionPane.ERROR_MESSAGE);  
+            }  
+        }  
+    }  
+
     @Override  
     public void propertyChange(PropertyChangeEvent evt) {  
         if ("Tickets".equals(evt.getPropertyName())) {  
-            // Update the available seats field when Tickets changes  
-            availableSeatsField.setText(String.valueOf(evt.getNewValue()));  
+            boolean[][] bookedSeats = (boolean[][]) evt.getNewValue();  
+            for (int i = 0; i < Ticket.ROWS; i++) {  
+                for (int j = 0; j < Ticket.COLUMNS; j++) {  
+                    if (bookedSeats[i][j]) {  
+                        seatButtons[i][j].setBackground(Color.RED);  
+                        //seatButtons[i][j].setEnabled(false);  
+                    }  
+                }  
+            }  
         }  
     }  
 }
