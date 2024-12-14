@@ -6,7 +6,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 public class mainPage {
-    public static void appear() {
+    public static void display() {
        // Main frame
         JFrame frame = new JFrame("Welcome to Movie Booking");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
